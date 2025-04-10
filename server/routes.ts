@@ -11,7 +11,12 @@ import {
 } from "@shared/schema";
 
 // Parse and validate the RAPID_API_KEY environment variable
-const RAPID_API_KEY = process.env.RAPID_API_KEY || "";
+// For development, use the hardcoded key if environment variable is not available
+const RAPID_API_KEY = process.env.RAPID_API_KEY || "a4a04ebedbmsh3dd89ad601af078p1d26b0jsnf35103e4850a";
+
+console.log("RAPID_API_KEY exists:", !!RAPID_API_KEY);
+console.log("RAPID_API_KEY value (first few chars):", RAPID_API_KEY.substring(0, 5) + "...");
+
 if (!RAPID_API_KEY) {
   console.error(
     "No RAPID_API_KEY found in environment variables. API calls will likely fail."

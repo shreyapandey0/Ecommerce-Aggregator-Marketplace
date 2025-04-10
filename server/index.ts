@@ -2,9 +2,20 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import dotenv from "dotenv";
+import { fileURLToPath } from 'url';
+import path from "path";
+
+// ES Module compatible __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables from .env file
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// Debug environment variables
+console.log("Environment variables loaded:");
+console.log("RAPID_API_KEY exists:", !!process.env.RAPID_API_KEY);
+console.log("All env vars keys:", Object.keys(process.env).length);
 
 const app = express();
 app.use(express.json());
