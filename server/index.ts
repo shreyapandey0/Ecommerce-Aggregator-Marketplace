@@ -1,37 +1,43 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { db } from "./storage";
+import { insertSampleProducts } from "./Sample-Products";
 import dotenv from "dotenv";
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from "url";
 import path from "path";
+import { setupVite } from "./vite";
+import fileUpload from "express-fileupload";
+import fs from "fs";
 
 // ES Module compatible __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 // Load environment variables from .env file
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
-
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 // Debug environment variables
 console.log("Environment variables loaded:");
-console.log("RAPID_API_KEY exists:", !!process.env.RAPID_API_KEY);
 console.log("All env vars keys:", Object.keys(process.env).length);
-
+console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
+console.log("RAPID_API_KEY exists:", !!process.env.RAPID_API_KEY);
 const app = express();
 app.use(express.json());
+app.use(
+  fileUpload({
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max file size
+    abortOnLimit: true,
+  })
+);
+app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
-
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
@@ -39,47 +45,44 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
-
-      log(logLine);
+      console.log(logLine);
     }
   });
-
   next();
 });
-
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, "../uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use("/uploads", express.static(uploadsDir));
 (async () => {
   const server = await registerRoutes(app);
-
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     res.status(status).json({ message });
     throw err;
   });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    console.log("Static serving not yet implemented.");
   }
-
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+  server.listen(
+    {
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    },
+    () => {
+      console.log(`serving on port ${port}`);
+    }
+  );
 })();
+// Ensure this is called after the server setup
+insertSampleProducts().catch(console.error);

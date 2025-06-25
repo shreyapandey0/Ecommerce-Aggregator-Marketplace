@@ -20,40 +20,14 @@ export const searchProducts = async (
 ) => {
   const params = new URLSearchParams();
 
-  // Always use 'query' parameter instead of 'q' to match server expectation
+  // Add query
   if (query) {
     params.append("query", query);
   }
 
   if (filters) {
-    if (filters.category) {
-      params.append("category", filters.category);
-    }
-
-    if (filters.priceRange) {
-      params.append("minPrice", filters.priceRange[0].toString());
-      params.append("maxPrice", filters.priceRange[1].toString());
-    }
-
-    if (filters.brands && filters.brands.length > 0) {
-      params.append("brands", filters.brands.join(","));
-    }
-
-    if (filters.deliveryOptions) {
-      if (filters.deliveryOptions.codAvailable) {
-        params.append("codAvailable", "true");
-      }
-      if (filters.deliveryOptions.freeDelivery) {
-        params.append("freeDelivery", "true");
-      }
-      if (filters.deliveryOptions.expressDelivery) {
-        params.append("expressDelivery", "true");
-      }
-    }
-
-    if (filters.rating) {
-      params.append("rating", filters.rating.toString());
-    }
+    // Convert entire filters object to JSON
+    params.append("filters", JSON.stringify(filters));
   }
 
   console.log(`Searching with params: ${params.toString()}`);
@@ -62,7 +36,6 @@ export const searchProducts = async (
     console.log("API Response:", {
       dataCount: response.data.products?.length || 0,
       source: response.data._meta?.source || "unknown",
-      sample: response.data._meta?.sample,
     });
     return response.data;
   } catch (error) {

@@ -1,17 +1,29 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { sellers, sellerProducts, orders, schema } from "@shared/schema";
+import { sellers, sellerProducts, orders } from "@shared/schema";
 import "dotenv/config";
+
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not defined in .env file");
 }
+
 const client = postgres(process.env.DATABASE_URL);
-export const db = drizzle(client, { schema });
-export { client };
-// Initialize tables
+const db = drizzle(client);
+
+// Create the storage object that sample-products.ts expects
+export const storage = {
+  insertInto: (table: any) => ({
+    values: (data: any) => ({
+      execute: async () => {
+        return db.insert(table).values(data).execute();
+      },
+    }),
+  }),
+};
+
+// Initialize tables function (same as before)
 const createTables = async () => {
   try {
-    // Create sellers table
     await client`
       CREATE TABLE IF NOT EXISTS sellers (
         id SERIAL PRIMARY KEY,
@@ -23,7 +35,6 @@ const createTables = async () => {
       );
     `;
 
-    // Create seller_products table
     await client`
       CREATE TABLE IF NOT EXISTS seller_products (
         id SERIAL PRIMARY KEY,
@@ -39,7 +50,6 @@ const createTables = async () => {
       );
     `;
 
-    // Create orders table
     await client`
       CREATE TABLE IF NOT EXISTS orders (
         id SERIAL PRIMARY KEY,

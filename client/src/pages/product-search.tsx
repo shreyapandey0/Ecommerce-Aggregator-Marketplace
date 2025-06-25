@@ -80,6 +80,8 @@ const ProductSearch: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
+  const [sortBy, setSortBy] = useState("bestMatch");
+
   const selectedProductsCount = compareProducts.filter(
     (p) => p.selected
   ).length;
@@ -87,13 +89,57 @@ const ProductSearch: React.FC = () => {
   const handleApplyFilters = () => {
     // Close mobile filters if open
     setShowMobileFilters(false);
+
+    // Force a refetch with the new filters
+    if (currentQuery) {
+      refetchSearch();
+    } else if (currentCategory) {
+      refetchCategory();
+    }
+
+    console.log("Applied filters:", JSON.stringify(filters));
+  };
+
+  // Sort products based on sortBy state
+  const sortProducts = (productsToSort: any[]) => {
+    if (!productsToSort || productsToSort.length === 0) return [];
+
+    const sorted = [...productsToSort];
+
+    switch (sortBy) {
+      case "priceLowToHigh":
+        return sorted.sort((a, b) => {
+          const aMinPrice = Math.min(...a.platforms.map((p: any) => p.price));
+          const bMinPrice = Math.min(...b.platforms.map((p: any) => p.price));
+          return aMinPrice - bMinPrice;
+        });
+      case "priceHighToLow":
+        return sorted.sort((a, b) => {
+          const aMinPrice = Math.min(...a.platforms.map((p: any) => p.price));
+          const bMinPrice = Math.min(...b.platforms.map((p: any) => p.price));
+          return bMinPrice - aMinPrice;
+        });
+      case "rating":
+        return sorted.sort((a, b) => b.rating - a.rating);
+      default:
+        return sorted; // Best match - keep original order
+    }
   };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchInput.trim()) return;
 
-    console.log("Submitting search for:", searchInput);
+    // Update URL with search params
+    const searchParams = new URLSearchParams();
+    searchParams.set("query", searchInput);
+    if (filters.category) searchParams.set("category", filters.category);
+    window.history.pushState(
+      {},
+      "",
+      `${window.location.pathname}?${searchParams}`
+    );
+
     setCurrentQuery(searchInput);
     setSearchTerm(searchInput);
 
@@ -108,9 +154,17 @@ const ProductSearch: React.FC = () => {
   };
 
   // Determine which products to display
-  const products = currentQuery
+  // Check if we're using the mock data
+  const isMockData =
+    data?._meta?.source === "mock" || categoryData?._meta?.source === "mock";
+
+  // Get the products from the appropriate data source
+  const unsortedProducts = currentQuery
     ? data?.products || []
     : categoryData?.products || [];
+
+  // Apply sorting to products
+  const products = sortProducts(unsortedProducts);
 
   // Determine loading state
   const loading = currentQuery ? isLoading : isCategoryLoading;
@@ -152,6 +206,38 @@ const ProductSearch: React.FC = () => {
           >
             Compare Selected ({selectedProductsCount})
           </Button>
+        </div>
+      )}
+
+      {/* API Rate Limit Banner */}
+      {isMockData && (
+        <div className="bg-amber-50 rounded-lg p-4 mb-6 border border-amber-200">
+          <div className="flex items-start">
+            <div className="flex-shrink-0 mt-0.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-amber-400"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="font-heading font-medium text-amber-800">
+                API Rate Limit Reached
+              </h3>
+              <p className="text-sm text-amber-700 mt-1">
+                You're currently viewing sample product data because the
+                RapidAPI monthly quota has been exceeded. Filters and search
+                functionality will still work with the sample data.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -210,15 +296,132 @@ const ProductSearch: React.FC = () => {
                   ? "No products found for your search"
                   : "No products found"}
               </p>
+
+              {/* Display Active Filters */}
+              {Object.keys(filters).length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {filters.category && (
+                    <div className="bg-primary-100 text-primary-800 px-2 py-1 rounded-md text-xs flex items-center">
+                      Category: {filters.category}
+                      <button
+                        className="ml-1 text-gray-600"
+                        onClick={() =>
+                          setFilters({ ...filters, category: undefined })
+                        }
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+
+                  {filters.priceRange &&
+                    (filters.priceRange[0] > 0 ||
+                      filters.priceRange[1] < 2000) && (
+                      <div className="bg-primary-100 text-primary-800 px-2 py-1 rounded-md text-xs flex items-center">
+                        Price: ₹{filters.priceRange[0]} - ₹
+                        {filters.priceRange[1]}
+                        <button
+                          className="ml-1 text-gray-600"
+                          onClick={() =>
+                            setFilters({ ...filters, priceRange: [0, 2000] })
+                          }
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
+
+                  {filters.brands && filters.brands.length > 0 && (
+                    <div className="bg-primary-100 text-primary-800 px-2 py-1 rounded-md text-xs flex items-center">
+                      Brands: {filters.brands.length}
+                      <button
+                        className="ml-1 text-gray-600"
+                        onClick={() => setFilters({ ...filters, brands: [] })}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+
+                  {filters.rating && (
+                    <div className="bg-primary-100 text-primary-800 px-2 py-1 rounded-md text-xs flex items-center">
+                      Rating: {filters.rating}+ stars
+                      <button
+                        className="ml-1 text-gray-600"
+                        onClick={() =>
+                          setFilters({ ...filters, rating: undefined })
+                        }
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+
+                  {filters.deliveryOptions?.codAvailable && (
+                    <div className="bg-primary-100 text-primary-800 px-2 py-1 rounded-md text-xs flex items-center">
+                      COD Available
+                      <button
+                        className="ml-1 text-gray-600"
+                        onClick={() => {
+                          const newOptions = {
+                            ...filters.deliveryOptions,
+                            codAvailable: false,
+                          };
+                          setFilters({
+                            ...filters,
+                            deliveryOptions: newOptions,
+                          });
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+
+                  {filters.deliveryOptions?.freeDelivery && (
+                    <div className="bg-primary-100 text-primary-800 px-2 py-1 rounded-md text-xs flex items-center">
+                      Free Delivery
+                      <button
+                        className="ml-1 text-gray-600"
+                        onClick={() => {
+                          const newOptions = {
+                            ...filters.deliveryOptions,
+                            freeDelivery: false,
+                          };
+                          setFilters({
+                            ...filters,
+                            deliveryOptions: newOptions,
+                          });
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    className="bg-gray-200 text-gray-700 px-2 py-1 rounded-md text-xs flex items-center"
+                    onClick={() => {
+                      setFilters({});
+                      handleApplyFilters();
+                    }}
+                  >
+                    Clear All Filters
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex items-center mt-2 sm:mt-0">
               <span className="text-sm text-gray-700 mr-2">Sort by:</span>
-              <select className="bg-white border border-gray-300 rounded-lg py-1 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                <option>Best Match</option>
-                <option>Price: Low to High</option>
-                <option>Price: High to Low</option>
-                <option>Newest Arrivals</option>
-                <option>Customer Rating</option>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-white border border-gray-300 rounded-lg py-1 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="bestMatch">Best Match</option>
+                <option value="priceLowToHigh">Price: Low to High</option>
+                <option value="priceHighToLow">Price: High to Low</option>
+                <option value="rating">Customer Rating</option>
               </select>
             </div>
           </div>

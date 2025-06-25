@@ -1,4 +1,13 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, doublePrecision } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  integer,
+  boolean,
+  timestamp,
+  jsonb,
+  doublePrecision,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -44,7 +53,7 @@ export const products = pgTable("products", {
   image: text("image"),
   rating: integer("rating").default(0),
   reviewCount: integer("review_count").default(0),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const productSchema = createInsertSchema(products);
@@ -63,7 +72,7 @@ export const cartItems = pgTable("cart_items", {
   productId: integer("product_id").notNull(),
   platformId: text("platform_id").notNull(),
   quantity: integer("quantity").default(1).notNull(),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertCartItemSchema = createInsertSchema(cartItems).pick({
@@ -83,12 +92,56 @@ export const searchFiltersSchema = z.object({
   category: z.string().optional(),
   priceRange: z.tuple([z.number(), z.number()]).optional(),
   brands: z.array(z.string()).optional(),
-  deliveryOptions: z.object({
-    codAvailable: z.boolean().optional(),
-    freeDelivery: z.boolean().optional(),
-    expressDelivery: z.boolean().optional(),
-  }).optional(),
+  deliveryOptions: z
+    .object({
+      codAvailable: z.boolean().optional(),
+      freeDelivery: z.boolean().optional(),
+      expressDelivery: z.boolean().optional(),
+    })
+    .optional(),
   rating: z.number().min(1).max(5).optional(),
 });
 
 export type SearchFilters = z.infer<typeof searchFiltersSchema>;
+
+// Seller Schema
+export const sellers = pgTable("sellers", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  storeName: text("store_name").notNull(),
+  description: text("description"),
+  contact: text("contact"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Seller Product Schema
+export const sellerProducts = pgTable("seller_products", {
+  id: serial("id").primaryKey(),
+  sellerId: integer("seller_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category"),
+  price: doublePrecision("price").notNull(),
+  stock: integer("stock").notNull(),
+  image: text("image"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Order Schema - MOVED BEFORE schema OBJECT
+export const orders = pgTable("orders", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  sellerId: integer("seller_id").notNull(),
+  productId: integer("product_id").notNull(),
+  quantity: integer("quantity").notNull(),
+  totalAmount: doublePrecision("total_amount").notNull(),
+  status: text("status").notNull(), // pending, confirmed, shipped, delivered
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Schema object - NOW AFTER all table definitions
+export const schema = {
+  sellers,
+  sellerProducts,
+  orders,
+};
