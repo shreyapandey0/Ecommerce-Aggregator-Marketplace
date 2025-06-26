@@ -1,4 +1,10 @@
-import type { Express } from "express";
+// ✅ VALID - place this at the very top of routes.ts
+// Top of server/routes.ts
+import express from "express";
+import type { Express, Request, Response } from "express"; // ✅ Correct place
+// ✅ At the top of the file
+import type { ProductWithPlatforms, Platform } from "@shared/schema";
+
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url"; // Add this line
@@ -7,15 +13,12 @@ import { createServer, type Server } from "http";
 import { db, client } from "./storage"; // Add client import
 import axios from "axios";
 import { z } from "zod";
-import {
-  Platform,
-  ProductWithPlatforms,
-  SearchFilters,
-  insertCartItemSchema,
-} from "@shared/schema";
+import { SearchFilters, insertCartItemSchema } from "@shared/schema";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const publicPath = path.resolve(__dirname, "public");
 
 // Parse and validate the RAPID_API_KEY environment variable
 // For development, use the hardcoded key if environment variable is not available
@@ -38,12 +41,19 @@ if (!RAPID_API_KEY) {
   console.log("RAPID_API_KEY is set and ready to use");
 }
 // Helper to handle async route functions
-const asyncHandler = (fn: Function) => (req: any, res: any) => {
-  Promise.resolve(fn(req, res)).catch((err) => {
-    console.error("Error in request:", err);
-    res.status(500).json({ error: err.message || "Internal server error" });
-  });
-};
+const asyncHandler =
+  (
+    fn: (
+      req: import("express").Request,
+      res: import("express").Response
+    ) => Promise<void>
+  ) =>
+  (req: import("express").Request, res: import("express").Response) => {
+    Promise.resolve(fn(req, res)).catch((err) => {
+      console.error("Error in request:", err);
+      res.status(500).json({ error: err.message || "Internal server error" });
+    });
+  };
 // Function to get product details via Rapid API
 async function getProductDetailsFromAPI(
   productId: string
@@ -130,7 +140,7 @@ async function getProductDetailsFromAPI(
         id: "online",
         name: "Online Store",
         price: itemPrice || 99.99,
-        originalPrice: originalPrice > 0 ? originalPrice : undefined,
+        originalPrice: originalPrice !== undefined ? originalPrice : null,
         codAvailable: false,
         freeDelivery: false,
         deliveryDate: "Standard delivery",
@@ -592,7 +602,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       if (req.query.rating) {
-        filters.rating = parseInt(req.query.rating as string);
+        filters.rating = Number(req.query.rating);
       }
 
       if (req.query.priceRange) {
@@ -650,7 +660,7 @@ export function registerRoutes(app: Express): Server {
   app.get(
     "/api/products/:id",
     asyncHandler(async (req, res) => {
-      const productId = parseInt(req.params.id);
+      const productId = Number(req.params.id);
       console.log("Getting product details for ID:", productId);
 
       try {
@@ -676,8 +686,8 @@ export function registerRoutes(app: Express): Server {
                 {
                   id: "dealaxe-store",
                   name: "DealAxe Store",
-                  price: parseFloat(sellerProduct.price),
-                  originalPrice: undefined,
+                  price: Number(sellerProduct.price),
+                  originalPrice: null,
                   codAvailable: true,
                   freeDelivery: true,
                   deliveryDate: "3-5 business days",
@@ -750,7 +760,7 @@ export function registerRoutes(app: Express): Server {
               id: "dealaxe-store",
               name: "DealAxe Store",
               price: parseFloat(product.price),
-              originalPrice: undefined,
+              originalPrice: null,
               codAvailable: true,
               freeDelivery: true,
               deliveryDate: "3-5 business days",
@@ -867,12 +877,20 @@ export function registerRoutes(app: Express): Server {
       }
     })
   );
-  // In routes.ts - Update the seller products POST endpoint:
+
   app.post(
     "/api/sellers/products",
-    asyncHandler(async (req, res) => {
+    asyncHandler(async (req: Request, res: Response) => {
       try {
-        const product = req.body;
+        const product: {
+          sellerId?: number;
+          name: string;
+          description?: string;
+          category: string;
+          price: string | number;
+          stock?: string | number;
+          image?: string;
+        } = req.body;
 
         // Validate the product has required fields
         if (!product.name || !product.category || !product.price) {
@@ -889,17 +907,15 @@ export function registerRoutes(app: Express): Server {
 
         // Insert product with validated image URL
         const result = await client`
-        INSERT INTO seller_products 
-        (seller_id, name, description, category, price, stock, image)
-        VALUES 
-        (${product.sellerId || 1}, ${product.name}, ${
-          product.description || ""
-        }, 
-         ${product.category.toLowerCase()}, ${parseFloat(product.price)}, ${
-          parseInt(product.stock) || 0
-        }, ${imageUrl})
-        RETURNING *
-      `;
+      INSERT INTO seller_products 
+      (seller_id, name, description, category, price, stock, image)
+      VALUES 
+      (${product.sellerId || 1}, ${product.name}, ${product.description || ""}, 
+       ${product.category.toLowerCase()}, ${parseFloat(
+          product.price.toString()
+        )}, ${parseInt(product.stock?.toString() || "0")}, ${imageUrl})
+      RETURNING *
+    `;
 
         if (result && result.length > 0) {
           console.log("Product added successfully:", result[0]);

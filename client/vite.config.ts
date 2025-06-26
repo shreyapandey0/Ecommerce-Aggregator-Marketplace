@@ -1,10 +1,14 @@
-// client/vite.config.ts
-import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const defineConfig = (await import("vite")).defineConfig;
 
 export default defineConfig({
-  root: path.resolve(__dirname), // ✅ ensures Vite builds from client/
+  root: path.resolve(__dirname),
   plugins: [react()],
   resolve: {
     alias: {
@@ -14,7 +18,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: path.resolve(__dirname, "../dist/public"), // ✅ static files here for server to serve
+    outDir: path.resolve(__dirname, "../dist/public"),
     emptyOutDir: true,
   },
 });
