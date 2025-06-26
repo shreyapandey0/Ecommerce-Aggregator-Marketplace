@@ -47,7 +47,7 @@ export type InsertPlatform = typeof platforms.$inferInsert;
 // Product Schema
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+  name: text("name").notNull().unique(),
   description: text("description"),
   category: text("category"),
   image: text("image"),
