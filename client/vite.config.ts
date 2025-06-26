@@ -5,9 +5,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const defineConfig = (await import("vite")).defineConfig;
-
-export default defineConfig({
+export default {
   root: path.resolve(__dirname),
   plugins: [react()],
   resolve: {
@@ -21,4 +19,4 @@ export default defineConfig({
     outDir: path.resolve(__dirname, "../dist/public"),
     emptyOutDir: true,
   },
-});
+};

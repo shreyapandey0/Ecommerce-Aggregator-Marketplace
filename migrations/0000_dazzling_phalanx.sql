@@ -1,4 +1,4 @@
-CREATE TABLE "cart_items" (
+CREATE TABLE IF NOT EXISTS "cart_items" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" integer,
 	"product_id" integer NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE "cart_items" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "orders" (
+CREATE TABLE IF NOT EXISTS "orders" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" integer NOT NULL,
 	"seller_id" integer NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE "orders" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "platforms" (
+CREATE TABLE IF NOT EXISTS "platforms" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"product_id" integer NOT NULL,
 	"name" text NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE "platforms" (
 	"is_best_deal" boolean DEFAULT false
 );
 --> statement-breakpoint
-CREATE TABLE "products" (
+CREATE TABLE IF NOT EXISTS "products" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -43,7 +43,7 @@ CREATE TABLE "products" (
 	CONSTRAINT "products_name_unique" UNIQUE("name")
 );
 --> statement-breakpoint
-CREATE TABLE "seller_products" (
+CREATE TABLE IF NOT EXISTS "seller_products" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"seller_id" integer NOT NULL,
 	"name" text NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE "seller_products" (
 	CONSTRAINT "seller_products_name_seller_id_unique" UNIQUE("name","seller_id")
 );
 --> statement-breakpoint
-CREATE TABLE "sellers" (
+CREATE TABLE IF NOT EXISTS "sellers" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" integer NOT NULL,
 	"store_name" text NOT NULL,
@@ -65,7 +65,7 @@ CREATE TABLE "sellers" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "users" (
+CREATE TABLE IF NOT EXISTS "users" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"username" text NOT NULL,
 	"password" text NOT NULL,

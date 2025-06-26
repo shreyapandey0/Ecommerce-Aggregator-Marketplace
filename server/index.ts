@@ -1,26 +1,24 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { db } from "./storage"; // ✔️ db should use Node pg driver (`pg`)
+import { db } from "./storage";
 import { insertSampleProducts } from "./Sample-Products";
 import dotenv from "dotenv";
-import { setupVite, serveStatic } from "./vite"; // ✔️ Make sure to use serveStatic in production
 import fileUpload from "express-fileupload";
 import fs from "fs";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-
-import { fileURLToPath } from "url";
 import path from "path";
+import { fileURLToPath } from "url";
 
+// Resolve __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 
 // ✅ Load .env
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 console.log("✅ Environment loaded");
 console.log("🌐 DATABASE_URL:", process.env.DATABASE_URL ? "OK" : "Missing");
 
-// ✅ Ensure uploads directory exists
+// ✅ Ensure uploads folder exists
 const uploadsDir = path.join(__dirname, "../uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -38,7 +36,7 @@ app.use(
 );
 app.use("/uploads", express.static(uploadsDir));
 
-// ✅ Logging middleware for API requests
+// ✅ Request Logger
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -66,14 +64,13 @@ app.use((req, res, next) => {
 // ✅ Async startup
 (async () => {
   try {
-    // ✅ Run migrations at start (important for Render)
     await migrate(db, { migrationsFolder: "migrations" });
     console.log("✅ Drizzle migrations ran successfully");
   } catch (err) {
     console.error("❌ Migration error:", err);
   }
 
-  // ✅ Setup API routes
+  // ✅ Register backend routes
   const server = await registerRoutes(app);
 
   // ✅ Global error handler
@@ -84,24 +81,25 @@ app.use((req, res, next) => {
     console.error("❌", message);
   });
 
-  // ✅ Serve frontend
-  if (process.env.NODE_ENV === "development") {
-    await setupVite(app, server);
-  } else {
+  // ✅ Serve frontend in production
+  if (process.env.NODE_ENV === "production") {
+    const distPath = path.join(__dirname, "../dist/public");
+    app.use(express.static(distPath));
+
+    // SPA fallback for React
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+
     console.log("🟢 Serving static frontend in production...");
-    serveStatic(app); // <- use public/dist in production
   }
 
-  // ✅ Start server
   const port = process.env.PORT || 5000;
-  server.listen(
-    { port: Number(port), host: "0.0.0.0", reusePort: true },
-    () => {
-      console.log(`🟢 Server running at http://localhost:${port}`);
-    }
-  );
+  server.listen({ port: Number(port), host: "0.0.0.0" }, () => {
+    console.log(`🟢 Server running at http://localhost:${port}`);
+  });
 
-  // ✅ Optional: seed products (only for dev/local)
+  // ✅ Optional seed products in dev
   if (process.env.NODE_ENV !== "production") {
     insertSampleProducts().catch(console.error);
   }
