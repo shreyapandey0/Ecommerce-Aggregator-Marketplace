@@ -1,3 +1,4 @@
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -5,7 +6,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export default {
+export default defineConfig({
   root: path.resolve(__dirname),
   plugins: [react()],
   resolve: {
@@ -16,7 +17,7 @@ export default {
     },
   },
   build: {
-    outDir: path.resolve(__dirname, "../dist/public"),
+    outDir: "../dist/public", // ✅ ensures frontend build goes inside backend dist/public
     emptyOutDir: true,
   },
-};
+});
