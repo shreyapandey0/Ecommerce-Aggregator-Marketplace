@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   jsonb,
+  unique, // ✅ Add this
   doublePrecision,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -115,17 +116,23 @@ export const sellers = pgTable("sellers", {
 });
 
 // Seller Product Schema
-export const sellerProducts = pgTable("seller_products", {
-  id: serial("id").primaryKey(),
-  sellerId: integer("seller_id").notNull(),
-  name: text("name").notNull(),
-  description: text("description"),
-  category: text("category"),
-  price: doublePrecision("price").notNull(),
-  stock: integer("stock").notNull(),
-  image: text("image"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+export const sellerProducts = pgTable(
+  "seller_products",
+  {
+    id: serial("id").primaryKey(),
+    sellerId: integer("seller_id").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    category: text("category"),
+    price: doublePrecision("price").notNull(),
+    stock: integer("stock").notNull(),
+    image: text("image"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    uniqueSellerProduct: unique().on(table.name, table.sellerId),
+  })
+);
 
 // Order Schema - MOVED BEFORE schema OBJECT
 export const orders = pgTable("orders", {
