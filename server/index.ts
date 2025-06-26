@@ -8,81 +8,94 @@ import path from "path";
 import { setupVite } from "./vite";
 import fileUpload from "express-fileupload";
 import fs from "fs";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
 
-// ES Module compatible __dirname equivalent
+// ES Module-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Load environment variables from .env file
+
+// Load .env file
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
-// Debug environment variables
-console.log("Environment variables loaded:");
-console.log("All env vars keys:", Object.keys(process.env).length);
-console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
-console.log("RAPID_API_KEY exists:", !!process.env.RAPID_API_KEY);
+console.log("✅ Environment loaded");
+console.log("🌐 DATABASE_URL:", process.env.DATABASE_URL ? "OK" : "Missing");
+
+// Create uploads folder if not present
+const uploadsDir = path.join(__dirname, "../uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Create Express app
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 app.use(
   fileUpload({
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max file size
+    limits: { fileSize: 5 * 1024 * 1024 },
     abortOnLimit: true,
   })
 );
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use("/uploads", express.static(uploadsDir));
+
+// Logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-  const originalResJson = res.json;
+  let capturedJson: any;
+  const originalJson = res.json;
   res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
+    capturedJson = bodyJson;
+    return originalJson.apply(res, [bodyJson, ...args]);
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
+      if (capturedJson) logLine += ` :: ${JSON.stringify(capturedJson)}`;
+      if (logLine.length > 80) logLine = logLine.slice(0, 79) + "…";
       console.log(logLine);
     }
   });
   next();
 });
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, "../uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-app.use("/uploads", express.static(uploadsDir));
+
+// Async startup
 (async () => {
+  // 🔁 Run migrations (important for Render deployments)
+  try {
+    await migrate(db, { migrationsFolder: "migrations" });
+    console.log("✅ Drizzle migrations ran successfully");
+  } catch (err) {
+    console.error("❌ Migration error:", err);
+  }
+
+  // Setup routes
   const server = await registerRoutes(app);
+
+  // Error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     res.status(status).json({ message });
-    throw err;
+    console.error("❌", message);
   });
+
+  // Serve frontend
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    console.log("Static serving not yet implemented.");
+    console.log("🚀 Production static frontend not yet implemented");
   }
-  const port = 5000;
+
+  // Start server
+  const port = process.env.PORT || 5000;
   server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
+    { port: Number(port), host: "0.0.0.0", reusePort: true },
     () => {
-      console.log(`serving on port ${port}`);
+      console.log(`🟢 Server running at http://localhost:${port}`);
     }
   );
+
+  // Optional: seed products
+  insertSampleProducts().catch(console.error);
 })();
-// Ensure this is called after the server setup
-insertSampleProducts().catch(console.error);
